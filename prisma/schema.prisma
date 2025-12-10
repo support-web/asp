@@ -1,0 +1,598 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserType {
+  admin
+  advertiser
+  publisher
+}
+
+enum UserStatus {
+  pending
+  active
+  suspended
+  banned
+}
+
+enum ReviewStatus {
+  pending_review
+  approved
+  rejected
+  suspended
+}
+
+enum PublisherType {
+  individual
+  corporate
+}
+
+enum Gender {
+  male
+  female
+  other
+}
+
+enum PublisherRank {
+  regular
+  bronze
+  silver
+  gold
+  platinum
+}
+
+enum AccountType {
+  ordinary
+  current
+  savings
+}
+
+enum TaxStatus {
+  taxable
+  exempt
+}
+
+enum SiteType {
+  website
+  blog
+  sns
+  email
+  app
+  other
+}
+
+enum ContractType {
+  prepaid
+  postpaid
+}
+
+enum CommissionType {
+  cpa
+  cpc
+  cpm
+  hybrid
+}
+
+enum AttributionModel {
+  last_click
+  first_click
+  linear
+}
+
+enum ProgramStatus {
+  draft
+  pending_review
+  active
+  paused
+  ended
+}
+
+enum ProgramVisibility {
+  public
+  private
+  invite_only
+}
+
+enum CreativeType {
+  banner
+  text
+  email
+  product_feed
+}
+
+enum PartnershipStatus {
+  pending
+  approved
+  rejected
+  terminated
+}
+
+enum DeviceType {
+  desktop
+  mobile
+  tablet
+  other
+}
+
+enum ConversionType {
+  sale
+  lead
+  action
+  install
+}
+
+enum ConversionStatus {
+  pending
+  approved
+  rejected
+  canceled
+}
+
+enum CommissionStatus {
+  pending
+  confirmed
+  paid
+  canceled
+}
+
+enum PayoutStatus {
+  pending
+  processing
+  completed
+  failed
+  canceled
+}
+
+model User {
+  id                String     @id @default(uuid())
+  email             String     @unique
+  passwordHash      String     @map("password_hash")
+  userType          UserType   @map("user_type")
+  status            UserStatus @default(pending)
+  emailVerifiedAt   DateTime?  @map("email_verified_at")
+  twoFactorEnabled  Boolean    @default(false) @map("two_factor_enabled")
+  twoFactorSecret   String?    @map("two_factor_secret")
+  lastLoginAt       DateTime?  @map("last_login_at")
+  lastLoginIp       String?    @map("last_login_ip")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  advertiser          Advertiser?
+  publisher           Publisher?
+  reviewedAdvertisers Advertiser[]     @relation("ReviewedAdvertisers")
+  reviewedPublishers  Publisher[]      @relation("ReviewedPublishers")
+  reviewedSites       PublisherSite[]  @relation("ReviewedSites")
+  reviewedPartnerships Partnership[]   @relation("ReviewedPartnerships")
+  reviewedConversions Conversion[]     @relation("ReviewedConversions")
+  processedPayouts    Payout[]         @relation("ProcessedPayouts")
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+
+  @@index([email])
+  @@index([userType])
+  @@index([status])
+  @@map("users")
+}
+
+model Advertiser {
+  id                       String       @id @default(uuid())
+  userId                   String       @unique @map("user_id")
+  companyName              String       @map("company_name")
+  companyNameKana          String?      @map("company_name_kana")
+  representativeName       String       @map("representative_name")
+  postalCode               String?      @map("postal_code")
+  address                  String?
+  phone                    String?
+  websiteUrl               String?      @map("website_url")
+  businessType             String?      @map("business_type")
+  description              String?
+  logoUrl                  String?      @map("logo_url")
+  status                   ReviewStatus @default(pending_review)
+  reviewedAt               DateTime?    @map("reviewed_at")
+  reviewedBy               String?      @map("reviewed_by")
+  rejectionReason          String?      @map("rejection_reason")
+  contractType             ContractType @default(prepaid) @map("contract_type")
+  creditLimit              Decimal      @default(0) @map("credit_limit") @db.Decimal(15, 2)
+  currentBalance           Decimal      @default(0) @map("current_balance") @db.Decimal(15, 2)
+  billingEmail             String?      @map("billing_email")
+  corporateNumber          String?      @map("corporate_number")
+  invoiceRegistrationNumber String?     @map("invoice_registration_number")
+  createdAt                DateTime     @default(now()) @map("created_at")
+  updatedAt                DateTime     @updatedAt @map("updated_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewer  User?     @relation("ReviewedAdvertisers", fields: [reviewedBy], references: [id])
+  programs  Program[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("advertisers")
+}
+
+model Publisher {
+  id                 String        @id @default(uuid())
+  userId             String        @unique @map("user_id")
+  publisherType      PublisherType @map("publisher_type")
+  firstName          String?       @map("first_name")
+  lastName           String?       @map("last_name")
+  firstNameKana      String?       @map("first_name_kana")
+  lastNameKana       String?       @map("last_name_kana")
+  dateOfBirth        DateTime?     @map("date_of_birth")
+  gender             Gender?
+  companyName        String?       @map("company_name")
+  representativeName String?       @map("representative_name")
+  corporateNumber    String?       @map("corporate_number")
+  postalCode         String?       @map("postal_code")
+  address            String?
+  phone              String?
+  status             ReviewStatus  @default(pending_review)
+  reviewedAt         DateTime?     @map("reviewed_at")
+  reviewedBy         String?       @map("reviewed_by")
+  rejectionReason    String?       @map("rejection_reason")
+  rank               PublisherRank @default(regular)
+  totalEarnings      Decimal       @default(0) @map("total_earnings") @db.Decimal(15, 2)
+  bankName           String?       @map("bank_name")
+  bankCode           String?       @map("bank_code")
+  branchName         String?       @map("branch_name")
+  branchCode         String?       @map("branch_code")
+  accountType        AccountType?  @map("account_type")
+  accountNumber      String?       @map("account_number")
+  accountHolderName  String?       @map("account_holder_name")
+  taxStatus          TaxStatus     @default(taxable) @map("tax_status")
+  myNumberRegistered Boolean       @default(false) @map("my_number_registered")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewer     User?           @relation("ReviewedPublishers", fields: [reviewedBy], references: [id])
+  sites        PublisherSite[]
+  partnerships Partnership[]
+  commissions  Commission[]
+  payouts      Payout[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([rank])
+  @@map("publishers")
+}
+
+model PublisherSite {
+  id              String       @id @default(uuid())
+  publisherId     String       @map("publisher_id")
+  siteName        String       @map("site_name")
+  siteUrl         String       @map("site_url")
+  siteType        SiteType     @map("site_type")
+  categoryId      String?      @map("category_id")
+  description     String?
+  monthlyPv       Int?         @map("monthly_pv")
+  monthlyUu       Int?         @map("monthly_uu")
+  status          ReviewStatus @default(pending_review)
+  reviewedAt      DateTime?    @map("reviewed_at")
+  reviewedBy      String?      @map("reviewed_by")
+  rejectionReason String?      @map("rejection_reason")
+  snsPlatform     String?      @map("sns_platform")
+  snsAccountId    String?      @map("sns_account_id")
+  snsFollowers    Int?         @map("sns_followers")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  publisher    Publisher     @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  category     Category?     @relation(fields: [categoryId], references: [id])
+  reviewer     User?         @relation("ReviewedSites", fields: [reviewedBy], references: [id])
+  partnerships Partnership[]
+
+  @@index([publisherId])
+  @@index([status])
+  @@map("publisher_sites")
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  parentId    String?  @map("parent_id")
+  name        String
+  slug        String   @unique
+  description String?
+  icon        String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  parent   Category?       @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[]      @relation("CategoryHierarchy")
+  programs Program[]
+  sites    PublisherSite[]
+
+  @@index([parentId])
+  @@index([slug])
+  @@map("categories")
+}
+
+model Program {
+  id                    String            @id @default(uuid())
+  advertiserId          String            @map("advertiser_id")
+  programName           String            @map("program_name")
+  programCode           String            @unique @map("program_code")
+  description           String?
+  promotionText         String?           @map("promotion_text")
+  categoryId            String?           @map("category_id")
+  landingPageUrl        String            @map("landing_page_url")
+  trackingDomain        String?           @map("tracking_domain")
+  commissionType        CommissionType    @map("commission_type")
+  commissionAmount      Decimal?          @map("commission_amount") @db.Decimal(10, 2)
+  commissionRate        Decimal?          @map("commission_rate") @db.Decimal(5, 2)
+  secondTierRate        Decimal           @default(0) @map("second_tier_rate") @db.Decimal(5, 2)
+  cookieDurationDays    Int               @default(30) @map("cookie_duration_days")
+  attributionModel      AttributionModel  @default(last_click) @map("attribution_model")
+  autoApprovePublishers Boolean           @default(false) @map("auto_approve_publishers")
+  requiresReview        Boolean           @default(true) @map("requires_review")
+  minPayoutThreshold    Decimal           @default(1000) @map("min_payout_threshold") @db.Decimal(10, 2)
+  conversionConditions  String?           @map("conversion_conditions")
+  deniedConditions      String?           @map("denied_conditions")
+  startDate             DateTime?         @map("start_date")
+  endDate               DateTime?         @map("end_date")
+  status                ProgramStatus     @default(draft)
+  visibility            ProgramVisibility @default(public)
+  totalClicks           BigInt            @default(0) @map("total_clicks")
+  totalConversions      BigInt            @default(0) @map("total_conversions")
+  totalCommissionPaid   Decimal           @default(0) @map("total_commission_paid") @db.Decimal(15, 2)
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  advertiser   Advertiser        @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  category     Category?         @relation(fields: [categoryId], references: [id])
+  creatives    ProgramCreative[]
+  partnerships Partnership[]
+  conversions  Conversion[]
+
+  @@index([advertiserId])
+  @@index([status])
+  @@index([categoryId])
+  @@index([programCode])
+  @@map("programs")
+}
+
+model ProgramCreative {
+  id              String       @id @default(uuid())
+  programId       String       @map("program_id")
+  creativeType    CreativeType @map("creative_type")
+  creativeName    String       @map("creative_name")
+  imageUrl        String?      @map("image_url")
+  width           Int?
+  height          Int?
+  altText         String?      @map("alt_text")
+  headline        String?
+  bodyText        String?      @map("body_text")
+  destinationUrl  String?      @map("destination_url")
+  status          String       @default("active")
+  impressionCount BigInt       @default(0) @map("impression_count")
+  clickCount      BigInt       @default(0) @map("click_count")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+  clicks  Click[]
+
+  @@index([programId])
+  @@index([creativeType])
+  @@map("program_creatives")
+}
+
+model Partnership {
+  id                     String            @id @default(uuid())
+  programId              String            @map("program_id")
+  publisherId            String            @map("publisher_id")
+  siteId                 String?           @map("site_id")
+  status                 PartnershipStatus @default(pending)
+  appliedAt              DateTime          @default(now()) @map("applied_at")
+  reviewedAt             DateTime?         @map("reviewed_at")
+  reviewedBy             String?           @map("reviewed_by")
+  rejectionReason        String?           @map("rejection_reason")
+  customCommissionAmount Decimal?          @map("custom_commission_amount") @db.Decimal(10, 2)
+  customCommissionRate   Decimal?          @map("custom_commission_rate") @db.Decimal(5, 2)
+  affiliateCode          String            @unique @map("affiliate_code")
+  trackingUrl            String?           @map("tracking_url")
+  totalClicks            BigInt            @default(0) @map("total_clicks")
+  totalConversions       BigInt            @default(0) @map("total_conversions")
+  totalEarnings          Decimal           @default(0) @map("total_earnings") @db.Decimal(15, 2)
+  createdAt              DateTime          @default(now()) @map("created_at")
+  updatedAt              DateTime          @updatedAt @map("updated_at")
+
+  program     Program        @relation(fields: [programId], references: [id], onDelete: Cascade)
+  publisher   Publisher      @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+  site        PublisherSite? @relation(fields: [siteId], references: [id])
+  reviewer    User?          @relation("ReviewedPartnerships", fields: [reviewedBy], references: [id])
+  clicks      Click[]
+  conversions Conversion[]
+
+  @@unique([programId, publisherId])
+  @@index([programId])
+  @@index([publisherId])
+  @@index([status])
+  @@index([affiliateCode])
+  @@map("partnerships")
+}
+
+model Click {
+  id              String      @id @default(uuid())
+  partnershipId   String      @map("partnership_id")
+  creativeId      String?     @map("creative_id")
+  clickId         String      @unique @map("click_id")
+  trackingCode    String?     @map("tracking_code")
+  subId1          String?     @map("sub_id1")
+  subId2          String?     @map("sub_id2")
+  subId3          String?     @map("sub_id3")
+  subId4          String?     @map("sub_id4")
+  subId5          String?     @map("sub_id5")
+  ipAddress       String      @map("ip_address")
+  userAgent       String?     @map("user_agent")
+  refererUrl      String?     @map("referer_url")
+  landingUrl      String?     @map("landing_url")
+  deviceType      DeviceType? @map("device_type")
+  os              String?
+  osVersion       String?     @map("os_version")
+  browser         String?
+  browserVersion  String?     @map("browser_version")
+  countryCode     String?     @map("country_code")
+  region          String?
+  city            String?
+  fingerprintHash String?     @map("fingerprint_hash")
+  isSuspicious    Boolean     @default(false) @map("is_suspicious")
+  fraudScore      Int         @default(0) @map("fraud_score")
+  fraudReasons    Json?       @map("fraud_reasons")
+  clickedAt       DateTime    @default(now()) @map("clicked_at")
+
+  partnership Partnership  @relation(fields: [partnershipId], references: [id])
+  creative    ProgramCreative? @relation(fields: [creativeId], references: [id])
+  conversions Conversion[]
+
+  @@index([partnershipId])
+  @@index([clickId])
+  @@index([clickedAt])
+  @@index([ipAddress])
+  @@map("clicks")
+}
+
+model Conversion {
+  id             String           @id @default(uuid())
+  clickId        String?          @map("click_id")
+  partnershipId  String           @map("partnership_id")
+  programId      String           @map("program_id")
+  conversionId   String           @map("conversion_id")
+  orderId        String?          @map("order_id")
+  conversionType ConversionType   @map("conversion_type")
+  saleAmount     Decimal          @default(0) @map("sale_amount") @db.Decimal(15, 2)
+  commissionAmount Decimal        @map("commission_amount") @db.Decimal(10, 2)
+  currency       String           @default("JPY")
+  items          Json?
+  status         ConversionStatus @default(pending)
+  reviewedAt     DateTime?        @map("reviewed_at")
+  reviewedBy     String?          @map("reviewed_by")
+  rejectionReason String?         @map("rejection_reason")
+  subId1         String?          @map("sub_id1")
+  subId2         String?          @map("sub_id2")
+  subId3         String?          @map("sub_id3")
+  ipAddress      String?          @map("ip_address")
+  userAgent      String?          @map("user_agent")
+  isSuspicious   Boolean          @default(false) @map("is_suspicious")
+  fraudScore     Int              @default(0) @map("fraud_score")
+  fraudReasons   Json?            @map("fraud_reasons")
+  convertedAt    DateTime         @default(now()) @map("converted_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  click       Click?       @relation(fields: [clickId], references: [id])
+  partnership Partnership  @relation(fields: [partnershipId], references: [id])
+  program     Program      @relation(fields: [programId], references: [id])
+  reviewer    User?        @relation("ReviewedConversions", fields: [reviewedBy], references: [id])
+  commissions Commission[]
+
+  @@index([clickId])
+  @@index([partnershipId])
+  @@index([programId])
+  @@index([status])
+  @@index([convertedAt])
+  @@index([orderId])
+  @@map("conversions")
+}
+
+model Commission {
+  id               String           @id @default(uuid())
+  conversionId     String           @map("conversion_id")
+  publisherId      String           @map("publisher_id")
+  programId        String           @map("program_id")
+  grossAmount      Decimal          @map("gross_amount") @db.Decimal(10, 2)
+  taxAmount        Decimal          @default(0) @map("tax_amount") @db.Decimal(10, 2)
+  netAmount        Decimal          @map("net_amount") @db.Decimal(10, 2)
+  currency         String           @default("JPY")
+  status           CommissionStatus @default(pending)
+  payoutId         String?          @map("payout_id")
+  paidAt           DateTime?        @map("paid_at")
+  commissionPeriod DateTime         @map("commission_period")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  conversion Conversion @relation(fields: [conversionId], references: [id])
+  publisher  Publisher  @relation(fields: [publisherId], references: [id])
+  payout     Payout?    @relation(fields: [payoutId], references: [id])
+
+  @@index([conversionId])
+  @@index([publisherId])
+  @@index([status])
+  @@index([commissionPeriod])
+  @@map("commissions")
+}
+
+model Payout {
+  id                String       @id @default(uuid())
+  publisherId       String       @map("publisher_id")
+  payoutPeriod      DateTime     @map("payout_period")
+  grossAmount       Decimal      @map("gross_amount") @db.Decimal(15, 2)
+  taxWithholding    Decimal      @default(0) @map("tax_withholding") @db.Decimal(10, 2)
+  platformFee       Decimal      @default(0) @map("platform_fee") @db.Decimal(10, 2)
+  netAmount         Decimal      @map("net_amount") @db.Decimal(15, 2)
+  currency          String       @default("JPY")
+  bankInfo          Json         @map("bank_info")
+  status            PayoutStatus @default(pending)
+  processedAt       DateTime?    @map("processed_at")
+  processedBy       String?      @map("processed_by")
+  transferReference String?      @map("transfer_reference")
+  failureReason     String?      @map("failure_reason")
+  commissionCount   Int          @map("commission_count")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  publisher   Publisher    @relation(fields: [publisherId], references: [id])
+  processor   User?        @relation("ProcessedPayouts", fields: [processedBy], references: [id])
+  commissions Commission[]
+
+  @@index([publisherId])
+  @@index([status])
+  @@index([payoutPeriod])
+  @@map("payouts")
+}
+
+model Notification {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  notificationType String   @map("notification_type")
+  title            String
+  message          String
+  data             Json?
+  isRead           Boolean  @default(false) @map("is_read")
+  readAt           DateTime? @map("read_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
